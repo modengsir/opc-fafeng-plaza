@@ -56,22 +56,6 @@ python3 -m http.server 8080
 
 > 需联网加载 Three.js（jsDelivr CDN）。
 
-## 📦 部署 GitHub Pages
-
-1. 打开 https://github.com/modengsir/opc-fafeng-plaza/settings/pages
-2. Source 选 **Deploy from a branch**
-3. Branch 选 **main** + **/(root)** → Save
-4. 约 1 分钟后访问 https://modengsir.github.io/opc-fafeng-plaza/
-
-## 🗂️ 项目结构
-
-```
-├── index.html       # 游戏本体（单文件）
-├── promo/推特官宣.md # 开源推特文案
-├── screenshots/     # README 截图墙
-├── README.md
-├── LICENSE
-└── .gitignore
 
 ```
 
