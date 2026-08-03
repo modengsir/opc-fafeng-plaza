@@ -190,14 +190,14 @@ var bugHits=[],cardHits=[],bubbleHits=[];
 var guns={},muzzles={},flashLight,crossEl;
 var scene,camera,renderer,raycaster;
 
-/* 机位：相机正对靶区中心正后方，靶子永远在屏幕中央 */
+/* 【修正】机位：拉远+压低视线，保证靶子在画面中央且准星对齐 */
 var CAM_CONF={
-  smg:{pos:[-9,7,14],look:[-9,1.2,-2.5],fov:60},
-  shotgun:{pos:[0,7,15],look:[0,1.3,-3],fov:58},
-  sniper:{pos:[9,7,14],look:[9,1.5,-2.5],fov:45}
+  smg:{pos:[-7.5,4.5,14],look:[-7.5,1.8,-4],fov:60},
+  shotgun:{pos:[0,4.5,14],look:[0,1.8,-4],fov:58},
+  sniper:{pos:[7.5,4.5,14],look:[7.5,1.8,-4],fov:42}
 };
 var targetFov=60;
-var camPos,camPosT,camLookT,curLook;
+var camPos,camLookT,camPosT,curLook;
 
 function M(c,e,i){
   return new THREE.MeshPhongMaterial({color:c,emissive:e||0,emissiveIntensity:(i==null?0.8:i)});
@@ -243,17 +243,17 @@ function tracer(from,to,color){
 
 function initThree(){
   clock3=new THREE.Clock();
-  camPos=new THREE.Vector3(-9,7,14);
-  camPosT=new THREE.Vector3(-9,7,14);
-  camLookT=new THREE.Vector3(-9,1.2,-2.5);
-  curLook=new THREE.Vector3(-9,1.2,-2.5);
+  /* 【修正】初始相机位置与第一把武器对齐，避免开局黑屏 */
+  camPos=new THREE.Vector3(-7.5,4.5,14);
+  camPosT=new THREE.Vector3(-7.5,4.5,14);
+  camLookT=new THREE.Vector3(-7.5,1.8,-4);
+  curLook=new THREE.Vector3(-7.5,1.8,-4);
 
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x1a1030);
   scene.fog=new THREE.Fog(0x1a1030,34,70);
   camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,140);
   camera.position.copy(camPos);
-  camera.lookAt(curLook);
   camera.updateProjectionMatrix();
   scene.add(camera);
   renderer=new THREE.WebGLRenderer({antialias:true});
