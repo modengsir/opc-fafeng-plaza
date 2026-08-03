@@ -3,67 +3,58 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>OPC 发疯广场 3D · 修正版</title>
+<title>OPC 发疯广场 3D · 终极修正版</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { overflow: hidden; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #12081f; color: #fff; touch-action: none; user-select: none; }
+    body { overflow: hidden; font-family: 'PingFang SC', sans-serif; background: #0f0518; color: #fff; touch-action: none; user-select: none; }
     
-    /* UI 层 */
-    #ui-layer { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
-    .hud-panel { position: absolute; background: rgba(20, 10, 30, 0.8); border: 1px solid #4a2c66; padding: 8px 15px; border-radius: 8px; backdrop-filter: blur(4px); }
+    /* UI */
+    #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+    .panel { position: absolute; background: rgba(20, 10, 30, 0.85); border: 1px solid #5a3c76; padding: 10px 15px; border-radius: 10px; backdrop-filter: blur(4px); }
     
-    /* 左上角血条 */
-    #hp-box { top: 20px; left: 20px; width: 200px; }
-    .bar-bg { width: 100%; height: 10px; background: #333; border-radius: 5px; margin-top: 5px; overflow: hidden; }
+    #hp-box { top: 20px; left: 20px; width: 220px; }
+    .bar-bg { width: 100%; height: 12px; background: #333; border-radius: 6px; margin-top: 6px; overflow: hidden; border: 1px solid #555; }
     .bar-fill { height: 100%; background: linear-gradient(90deg, #ff4d4d, #ff9e9e); width: 100%; transition: width 0.2s; }
     
-    /* 右上角信息 */
-    #info-box { top: 20px; right: 20px; text-align: right; }
+    #info-box { top: 20px; right: 20px; text-align: right; min-width: 120px; }
     
-    /* 底部武器栏 */
-    #weapon-bar { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: auto; }
+    #weapon-bar { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; pointer-events: auto; }
     .w-btn { 
-        background: rgba(0,0,0,0.6); border: 2px solid #444; color: #aaa; 
-        padding: 10px 20px; border-radius: 12px; cursor: pointer; text-align: center; transition: all 0.2s;
-        min-width: 100px;
+        background: rgba(0,0,0,0.7); border: 2px solid #444; color: #aaa; 
+        padding: 12px 20px; border-radius: 12px; cursor: pointer; text-align: center; transition: all 0.2s;
+        min-width: 110px;
     }
-    .w-btn.active { border-color: #ffcc00; color: #fff; background: rgba(255, 204, 0, 0.1); transform: translateY(-5px); box-shadow: 0 5px 15px rgba(255, 204, 0, 0.3); }
+    .w-btn.active { border-color: #ffcc00; color: #fff; background: rgba(255, 204, 0, 0.15); transform: translateY(-5px); box-shadow: 0 5px 20px rgba(255, 204, 0, 0.4); }
     .w-name { font-weight: bold; font-size: 16px; display: block; margin-bottom: 4px; }
     .w-desc { font-size: 12px; opacity: 0.8; }
 
-    /* 屏幕正中提示 */
-    #msg-area { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
-    .float-text { font-size: 24px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8); animation: floatUp 1s forwards; }
-    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-50px); } }
+    #msg-area { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+    .float-text { font-size: 28px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.9); animation: floatUp 1s forwards; }
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(1.2); } }
 
-    /* 准星 */
-    #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); pointer-events: none; }
-    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255, 255, 255, 0.8); }
-    #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
-    #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
+    #crosshair { position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; transform: translate(-50%, -50%); pointer-events: none; }
+    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255, 255, 255, 0.9); box-shadow: 0 0 4px #000; }
+    #crosshair::before { top: 11px; left: 0; width: 24px; height: 2px; }
+    #crosshair::after { top: 0; left: 11px; width: 2px; height: 24px; }
 
-    /* 开始遮罩 */
-    #start-screen { position: fixed; inset: 0; background: rgba(18, 8, 31, 0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; }
-    .start-btn { background: linear-gradient(135deg, #ff5f9e, #ff9e9e); border: none; padding: 15px 40px; font-size: 20px; color: #fff; border-radius: 30px; cursor: pointer; margin-top: 30px; box-shadow: 0 0 20px rgba(255, 95, 158, 0.5); font-weight: bold; }
+    #start-screen { position: fixed; inset: 0; background: rgba(15, 5, 24, 0.98); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; }
+    .start-btn { background: linear-gradient(135deg, #ff5f9e, #ff9e9e); border: none; padding: 18px 50px; font-size: 22px; color: #fff; border-radius: 30px; cursor: pointer; margin-top: 40px; box-shadow: 0 0 30px rgba(255, 95, 158, 0.6); font-weight: bold; letter-spacing: 2px; }
     .start-btn:active { transform: scale(0.95); }
-
 </style>
-<!-- 引入 Three.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <!-- 游戏 UI -->
-    <div id="ui-layer">
-        <div id="hp-box" class="hud-panel">
-            <div style="font-size:14px; color:#ff9e9e">😫 焦虑值 <span id="hp-val">100</span></div>
+    <div id="ui">
+        <div id="hp-box" class="panel">
+            <div style="font-size:14px; color:#ff9e9e; font-weight:bold;">😫 焦虑值 <span id="hp-val">100</span></div>
             <div class="bar-bg"><div class="bar-fill" id="hp-bar"></div></div>
         </div>
         
-        <div id="info-box" class="hud-panel">
-            <div style="font-size:14px">⏱ <span id="time-val">00:00</span></div>
-            <div style="font-size:14px; margin-top:4px; color:#ffcc00">🔥 连击 <span id="combo-val">0</span></div>
-            <div style="font-size:12px; margin-top:4px; opacity:0.7" id="area-name">当前区域：Bug 垃圾场</div>
+        <div id="info-box" class="panel">
+            <div style="font-size:16px; font-weight:bold;">⏱ <span id="time-val">00:00</span></div>
+            <div style="font-size:14px; margin-top:6px; color:#ffcc00;">🔥 连击 <span id="combo-val">0</span></div>
+            <div style="font-size:12px; margin-top:6px; opacity:0.7;" id="area-name">当前：Bug 垃圾场</div>
         </div>
 
         <div id="crosshair"></div>
@@ -85,30 +76,36 @@
         </div>
     </div>
 
-    <!-- 开始界面 -->
     <div id="start-screen">
-        <h1 style="font-size: 40px; color: #ff5f9e; text-shadow: 0 0 20px rgba(255,95,158,0.6); margin-bottom: 10px;">OPC 发疯广场 3D</h1>
-        <p style="color: #c9a8ff; margin-bottom: 30px;">枪械版 · 把创业破事全部突突了</p>
+        <h1 style="font-size: 48px; color: #ff5f9e; text-shadow: 0 0 30px rgba(255,95,158,0.8); margin-bottom: 10px;">OPC 发疯广场 3D</h1>
+        <p style="color: #c9a8ff; margin-bottom: 10px; font-size: 18px;">枪械版 · 把创业破事全部突突了</p>
+        <p style="color: #888; font-size: 14px; max-width: 400px; text-align: center; line-height: 1.6;">
+            相机已锁定正前方，靶子就在你眼前。<br>点击屏幕任意位置开火！
+        </p>
         <button class="start-btn" onclick="startGame()">😤 进广场开火</button>
     </div>
 
 <script>
-    // --- 游戏配置 ---
+    // --- 核心配置 ---
     const CONFIG = {
-        cameraHeight: 1.6, // 视线高度（人眼高度）
-        targetDistance: 15, // 靶子距离（拉近一点）
-        colors: [0x4ade80, 0xfacc15, 0x60a5fa] // 靶子颜色
+        camHeight: 1.6,      // 人眼高度
+        lookAtZ: -12,        // 视线焦点：正前方12米
+        lookAtY: 1.2,        // 视线高度：略低于眼睛，看靶子中心
+        targetDistMin: 8,    // 靶子最近距离
+        targetDistMax: 16,   // 靶子最远距离
+        targetSpread: 10     // 靶子左右散布范围
     };
 
-    let scene, camera, renderer;
+    let scene, camera, renderer, clock;
     let targets = [];
+    let gunGroup;
     let isPlaying = false;
-    let lastTime = 0;
+    let startTime = 0;
     let score = 0;
     let hp = 100;
-    let currentWeapon = 0; // 0:冲锋, 1:霰弹, 2:狙击
+    let currentWeapon = 0;
     
-    // 简单的音效合成器
+    // 音效
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(type) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -116,113 +113,148 @@
         const gain = audioCtx.createGain();
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        
         const now = audioCtx.currentTime;
+        
         if (type === 'shoot') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(currentWeapon === 2 ? 800 : 400, now);
-            osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-            osc.start(now);
-            osc.stop(now + 0.1);
+            osc.type = currentWeapon === 2 ? 'sawtooth' : 'square';
+            osc.frequency.setValueAtTime(currentWeapon === 2 ? 600 : 300, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.15);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.start(now); osc.stop(now + 0.15);
         } else if (type === 'hit') {
             osc.type = 'sine';
             osc.frequency.setValueAtTime(800, now);
-            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-            gain.gain.setValueAtTime(0.1, now);
+            osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
+            gain.gain.setValueAtTime(0.2, now);
             gain.gain.linearRampToValueAtTime(0, now + 0.1);
-            osc.start(now);
-            osc.stop(now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
         }
     }
 
     function init() {
-        // 1. 场景
+        clock = new THREE.Clock();
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x12081f);
-        scene.fog = new THREE.Fog(0x12081f, 10, 50); // 雾气遮挡远处
+        scene.background = new THREE.Color(0x0f0518);
+        scene.fog = new THREE.FogExp2(0x0f0518, 0.02); // 指数雾，远处自然消失
 
-        // 2. 相机 (关键修改：位置降低，正对前方)
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, CONFIG.cameraHeight, 0); 
+        // 相机：站在原点，高度1.6
+        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, CONFIG.camHeight, 0);
         
-        // 3. 渲染器
+        // 渲染器
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        // 4. 灯光
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
+        // 灯光
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(5, 10, 7);
+        dirLight.position.set(5, 10, 5);
         scene.add(dirLight);
 
-        // 5. 地面 (带网格)
-        const gridHelper = new THREE.GridHelper(100, 50, 0x4a2c66, 0x2a1c36);
-        scene.add(gridHelper);
+        // 地面网格
+        const grid = new THREE.GridHelper(100, 40, 0x5a3c76, 0x2a1c36);
+        grid.position.y = 0;
+        scene.add(grid);
         
-        const planeGeo = new THREE.PlaneGeometry(100, 100);
-        const planeMat = new THREE.MeshBasicMaterial({ color: 0x1a0f25 });
-        const plane = new THREE.Mesh(planeGeo, planeMat);
+        const plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshBasicMaterial({ color: 0x150a20 })
+        );
         plane.rotation.x = -Math.PI / 2;
-        plane.position.y = -0.01; // 略低于网格
+        plane.position.y = -0.02;
         scene.add(plane);
 
-        // 6. 初始生成靶子
+        // 创建枪械模型 (挂在相机上)
+        createGun();
+        camera.add(gunGroup);
+        scene.add(camera); // 必须把相机加入场景，子物体才会渲染
+
+        // 初始生成靶子
         spawnTargets();
 
-        // 监听窗口大小
-        window.addEventListener('resize', onWindowResize, false);
-        
-        // 监听点击射击
+        window.addEventListener('resize', onResize);
         window.addEventListener('mousedown', onShoot);
-        window.addEventListener('touchstart', onShoot);
-
+        window.addEventListener('touchstart', onShoot, {passive: false});
+        
         animate();
     }
 
+    function createGun() {
+        gunGroup = new THREE.Group();
+        
+        // 枪身
+        const bodyGeo = new THREE.BoxGeometry(0.15, 0.15, 0.8);
+        const bodyMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.set(0, 0, 0);
+        gunGroup.add(body);
+
+        // 枪管
+        const barrelGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.6);
+        const barrelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+        const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.set(0, 0.02, -0.6);
+        gunGroup.add(barrel);
+
+        // 握把
+        const gripGeo = new THREE.BoxGeometry(0.12, 0.25, 0.15);
+        const grip = new THREE.Mesh(gripGeo, bodyMat);
+        grip.position.set(0, -0.15, 0.2);
+        grip.rotation.x = -0.2;
+        gunGroup.add(grip);
+
+        // 【关键修改】把枪拿远一点，放低一点，避免挡视线
+        gunGroup.position.set(0.35, -0.35, -1.2); 
+        gunGroup.rotation.y = -0.1; // 稍微斜一点，更有FPS感觉
+    }
+
     function spawnTargets() {
-        // 清除旧靶子
+        // 清理旧的
         targets.forEach(t => scene.remove(t.mesh));
         targets = [];
 
-        // 生成新靶子：在前方扇形区域随机分布
+        // 生成 5 个靶子，强制在正前方扇形区域
         for (let i = 0; i < 5; i++) {
-            const geo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-            const mat = new THREE.MeshLambertMaterial({ color: CONFIG.colors[i % 3] });
+            const size = 1.2 + Math.random() * 0.8;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            // 随机颜色：绿/黄/蓝
+            const colors = [0x4ade80, 0xfacc15, 0x60a5fa];
+            const mat = new THREE.MeshLambertMaterial({ color: colors[i % 3] });
             const mesh = new THREE.Mesh(geo, mat);
             
-            // 随机位置：X轴左右散开，Z轴向前延伸
-            const x = (Math.random() - 0.5) * 20; // 左右 -10 到 10
-            const z = -CONFIG.targetDistance - Math.random() * 10; // 前方 15-25米
-            const y = 0.75 + Math.random() * 2; // 高度 0.75-2.75米
+            // 【关键修改】位置计算：
+            // Z轴：负方向，8到16米之间
+            const z = -(CONFIG.targetDistMin + Math.random() * (CONFIG.targetDistMax - CONFIG.targetDistMin));
+            // X轴：左右散布，-5到5米
+            const x = (Math.random() - 0.5) * CONFIG.targetSpread;
+            // Y轴：高度在 0.8 到 2.5 米之间 (确保在视线范围内)
+            const y = 0.8 + Math.random() * 1.7;
             
             mesh.position.set(x, y, z);
-            
-            // 添加简单的旋转动画数据
-            mesh.userData = { rotSpeed: Math.random() * 0.02 };
+            mesh.userData = { rotSpeed: (Math.random() - 0.5) * 0.05 };
             
             scene.add(mesh);
-            targets.push({ mesh: mesh, active: true });
+            targets.push({ mesh: mesh });
         }
     }
 
     function onShoot(e) {
         if (!isPlaying) return;
-        // 防止点击UI触发射击
         if (e.target.closest('.w-btn') || e.target.closest('#start-screen')) return;
+        if(e.type === 'touchstart') e.preventDefault(); // 防止移动端双击缩放
 
         playSound('shoot');
 
-        // 模拟后坐力
-        camera.rotation.x += 0.02;
-        setTimeout(() => camera.rotation.x -= 0.02, 50);
-
-        // 射线检测
+        // 后坐力动画
+        gunGroup.position.z += 0.1;
+        camera.rotation.x += 0.03;
+        
+        // 射线检测：从屏幕正中心发射
         const raycaster = new THREE.Raycaster();
-        // 从屏幕中心发射
         raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
         
         const intersects = raycaster.intersectObjects(targets.map(t => t.mesh));
@@ -231,29 +263,37 @@
             const hitObj = intersects[0].object;
             handleHit(hitObj);
         } else {
-            // 没打中
-            showMsg("描边大师？", "#aaa");
+            showMsg("空枪！", "#888");
         }
     }
 
     function handleHit(mesh) {
         playSound('hit');
-        
-        // 找到对应的数据对象
         const idx = targets.findIndex(t => t.mesh === mesh);
         if (idx !== -1) {
-            // 移除该靶子
             scene.remove(mesh);
             targets.splice(idx, 1);
-            
-            // 加分
             score += 10;
             document.getElementById('combo-val').innerText = score;
             showMsg("+10 焦虑消除", "#ffcc00");
             
-            // 如果靶子太少，补充新的
+            // 补充靶子
             if (targets.length < 3) {
-                setTimeout(spawnTargets, 500);
+                setTimeout(() => {
+                    // 只生成一个补位
+                    const size = 1.2 + Math.random() * 0.8;
+                    const geo = new THREE.BoxGeometry(size, size, size);
+                    const colors = [0x4ade80, 0xfacc15, 0x60a5fa];
+                    const mat = new THREE.MeshLambertMaterial({ color: colors[Math.floor(Math.random()*3)] });
+                    const m = new THREE.Mesh(geo, mat);
+                    const z = -(CONFIG.targetDistMin + Math.random() * (CONFIG.targetDistMax - CONFIG.targetDistMin));
+                    const x = (Math.random() - 0.5) * CONFIG.targetSpread;
+                    const y = 0.8 + Math.random() * 1.7;
+                    m.position.set(x, y, z);
+                    m.userData = { rotSpeed: (Math.random() - 0.5) * 0.05 };
+                    scene.add(m);
+                    targets.push({ mesh: m });
+                }, 300);
             }
         }
     }
@@ -272,30 +312,21 @@
         const btns = document.querySelectorAll('.w-btn');
         btns.forEach(b => b.classList.remove('active'));
         btns[idx].classList.add('active');
-        
         const names = ["Bug 垃圾场", "需求回收站", "焦虑气泡池"];
-        document.getElementById('area-name').innerText = "当前区域：" + names[idx];
+        document.getElementById('area-name').innerText = "当前：" + names[idx];
         
-        // 切换武器时重置一下视野
+        // 换枪重置靶子
         spawnTargets();
     }
 
     function startGame() {
         document.getElementById('start-screen').style.display = 'none';
         isPlaying = true;
+        startTime = Date.now();
         init();
-        
-        // 计时器
-        setInterval(() => {
-            if(!isPlaying) return;
-            const now = Date.now();
-            const diff = Math.floor((now - lastTime) / 1000);
-            // 这里简单显示运行时间，实际逻辑可更复杂
-            // lastTime 在 init 里没设，这里简化处理
-        }, 1000);
     }
 
-    function onWindowResize() {
+    function onResize() {
         if (!camera || !renderer) return;
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -304,4 +335,36 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        if (!isPlaying)
+        if (!isPlaying) return;
+
+        const dt = clock.getDelta();
+        const time = Date.now() * 0.001;
+
+        // 【最关键修改】每一帧强制相机看向正前方固定点
+        // 这保证了无论发生什么，你的视野中心永远是 (0, 1.2, -12)
+        camera.lookAt(0, CONFIG.lookAtY, CONFIG.lookAtZ);
+
+        // 枪械后坐力恢复
+        gunGroup.position.z += (-1.2 - gunGroup.position.z) * 0.1;
+        camera.rotation.x += (0 - camera.rotation.x) * 0.1;
+        
+        // 枪械轻微浮动
+        gunGroup.position.y = -0.35 + Math.sin(time * 2) * 0.01;
+
+        // 靶子自转
+        targets.forEach(t => {
+            t.mesh.rotation.y += t.mesh.userData.rotSpeed;
+            t.mesh.rotation.x += t.mesh.userData.rotSpeed * 0.5;
+        });
+
+        // 更新时间
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const s = String(elapsed % 60).padStart(2, '0');
+        document.getElementById('time-val').innerText = `${m}:${s}`;
+
+        renderer.render(scene, camera);
+    }
+</script>
+</body>
+</html>
