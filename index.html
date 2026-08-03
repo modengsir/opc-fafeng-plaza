@@ -75,6 +75,7 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
     90 秒内把焦虑打到 0，领「今日发疯战报」
   </div>
   <button class="big-btn" onclick="toTheme()">😤 进广场开火</button>
+  <div id="three-err" style="display:none;margin-top:16px;color:#ff5252;font-size:13px;line-height:1.9;text-align:center">⚠️ 3D 引擎（Three.js）加载失败<br>请检查网络后刷新；或把 three.min.js 上传到仓库实现离线运行</div>
 </div>
 
 <div id="scr-theme" class="screen">
@@ -116,7 +117,12 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
   <div class="card" id="report-card"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+<!-- ===== 3D 引擎四保险加载：本地 → cdnjs → unpkg → jsdelivr ===== -->
+<script src="three.min.js"></script>
+<script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.157.0/three.min.js"><\/script>')</script>
+<script>window.THREE||document.write('<script src="https://unpkg.com/three@0.157.0/build/three.min.js"><\/script>')</script>
+<script>window.THREE||document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"><\/script>')</script>
+
 <script>
 /* ================= 音效 ================= */
 const AC=window.AudioContext||window.webkitAudioContext;let actx,noiseBuf;
@@ -151,10 +157,7 @@ let playing=false,ended=false,weapon='smg',cd=0,timeLeft=90;
 let comboTimer=null,spawnInts=[],secondInt=null;
 let shake=0,firing=false;
 const lastPtr={x:0,y:-0.1};
-const clock3=new THREE.Clock();
-
-/* ================= 场景 ================= */
-let scene,camera,renderer,raycaster;
+let clock3=null;
 const bugs=[],cards=[],bubbles=[],effects=[];
 const bugHits=[],cardHits=[],bubbleHits=[];
 let guns={},muzzles={},flashLight,crossEl;
@@ -164,9 +167,7 @@ const CAM_CONF={
   sniper:{pos:[3.5,7,15],look:[3.5,2.6,-2],fov:42}
 };
 let targetFov=58;
-const camPos=new THREE.Vector3(0,7,16),camLook=new THREE.Vector3(0,2,-2);
-const camPosT=new THREE.Vector3(...CAM_CONF.smg.pos),camLookT=new THREE.Vector3(...CAM_CONF.smg.look);
-const curLook=new THREE.Vector3(0,2,-2);
+let camPos,camLook,camPosT,camLookT,curLook;
 
 function M(c,e,i){return new THREE.MeshPhongMaterial({color:c,emissive:e||0,emissiveIntensity:i==null?.8:i});}
 function makeText(text,fontSize,color,bg,strokeColor){
@@ -203,6 +204,12 @@ function tracer(from,to,color){
 }
 
 function initThree(){
+  clock3=new THREE.Clock();
+  camPos=new THREE.Vector3(0,7,16);camLook=new THREE.Vector3(0,2,-2);
+  camPosT=new THREE.Vector3().fromArray(CAM_CONF.smg.pos);
+  camLookT=new THREE.Vector3().fromArray(CAM_CONF.smg.look);
+  curLook=new THREE.Vector3(0,2,-2);
+
   scene=new THREE.Scene();scene.background=new THREE.Color(0x1a1030);
   scene.fog=new THREE.Fog(0x1a1030,34,70);
   camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.1,140);
@@ -625,7 +632,7 @@ function endGame(){
   spawnInts.forEach(clearInterval);clearInterval(secondInt);
   document.getElementById('hud').style.display='none';
   document.getElementById('weapon-bar').style.display='none';
-  crossEl.style.display='none';
+  if(crossEl)crossEl.style.display='none';
   const cleared=100-Math.round(R.anxiety);
   const scores=[['Bug 扫射王',R.bugs],['需求守门员',R.badReq*2],['焦虑狙击手',R.bubbles]];
   scores.sort((a,b)=>b[1]-a[1]);
@@ -681,17 +688,26 @@ window.addEventListener('pointerdown',e=>{
   const nx=(e.clientX/innerWidth)*2-1,ny=-(e.clientY/innerHeight)*2+1;
   lastPtr.x=nx;lastPtr.y=ny;
   firing=true;fire(nx,ny);
-  crossEl.style.left=e.clientX+'px';crossEl.style.top=e.clientY+'px';
+  if(crossEl){crossEl.style.left=e.clientX+'px';crossEl.style.top=e.clientY+'px';}
 });
 window.addEventListener('pointerup',()=>firing=false);
 window.addEventListener('pointermove',e=>{
   lastPtr.x=(e.clientX/innerWidth)*2-1;lastPtr.y=-(e.clientY/innerHeight)*2+1;
-  crossEl.style.left=e.clientX+'px';crossEl.style.top=e.clientY+'px';
+  if(crossEl){crossEl.style.left=e.clientX+'px';crossEl.style.top=e.clientY+'px';}
 });
 window.addEventListener('contextmenu',e=>e.preventDefault());
 
-initThree();animate();
-window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+/* ================= 启动（引擎加载失败也不黑屏） ================= */
+if(window.THREE){
+  initThree();animate();
+}else{
+  const e=document.getElementById('three-err');if(e)e.style.display='block';
+}
+window.addEventListener('resize',()=>{
+  if(!renderer)return;
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
 </script>
 </body>
 </html>
