@@ -33,7 +33,7 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
 #weapon-bar button{background:rgba(10,5,25,.85);border:2px solid rgba(255,255,255,.15);border-radius:12px;color:#ccc;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.5}
 #weapon-bar button span{display:block;font-size:10px;font-weight:400;color:#888}
 #weapon-bar button.sel{border-color:#ffd75f;color:#ffd75f;box-shadow:0 0 14px rgba(255,215,95,.35)}
-#crosshair{position:fixed;left:50%;top:72%;width:34px;height:34px;transform:translate(-50%,-50%);pointer-events:none;z-index:14;display:none}
+#crosshair{position:fixed;left:50%;top:84%;width:34px;height:34px;transform:translate(-50%,-50%);pointer-events:none;z-index:14;display:none}
 #crosshair::before,#crosshair::after{content:'';position:absolute;background:#ffd75f;box-shadow:0 0 6px #ff6d00}
 #crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
 #crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%)}
@@ -179,7 +179,7 @@ var BUBBLES=['没人买','内容没人看','竞品融资了','客户已读不回
 var THEMES={bug:'被 Bug 追着打',req:'客户又改需求',content:'内容没人看',money:'现金流焦虑',ai:'AI 制造新问题'};
 
 var PLAY_Z=-8;
-var AIM_SCREEN_Y=.72;
+var AIM_SCREEN_Y=.84;
 var AIM_X=0,AIM_Y=1-AIM_SCREEN_Y*2;
 
 /* ================= 状态 ================= */
@@ -193,6 +193,7 @@ var bugs=[],cards=[],bubbles=[],effects=[];
 var bugHits=[],cardHits=[],bubbleHits=[];
 var guns={},muzzles={},flashLight,crossEl;
 var scene,camera,renderer,raycaster;
+var aimLock=null;
 
 /* 【修正】机位：拉远+压低视线，保证靶子在画面中央且准星对齐 */
 var CAM_CONF={
@@ -455,6 +456,51 @@ function spawnBubble(){
   scene.add(g);bubbles.push(g);bubbleHits.push(b);
 }
 
+function fallbackAimPoint(){
+  var p={smg:[-9,.45,PLAY_Z],shotgun:[1.6,1.25,PLAY_Z-1],sniper:[9,.9,PLAY_Z]}[weapon];
+  return new THREE.Vector3(p[0],p[1],p[2]);
+}
+function targetAimPoint(g){
+  var p=g.position.clone();
+  if(weapon==='smg')p.y+=.25;
+  else if(weapon==='shotgun')p.y-=.9;
+  else p.y-=Math.min(.9,g.userData.r*.65);
+  return p;
+}
+function chooseAimPoint(){
+  var list=weapon==='smg'?bugs:(weapon==='shotgun'?cards:bubbles);
+  var best=null,bestScore=Infinity;
+  for(var i=0;i<list.length;i++){
+    var g=list[i];
+    if(g.userData.dead)continue;
+    var p=targetAimPoint(g);
+    var ndc=p.clone().project(camera);
+    if(!isFinite(ndc.x)||!isFinite(ndc.y)||ndc.z<-1||ndc.z>1)continue;
+    if(Math.abs(ndc.x)>1.15||Math.abs(ndc.y)>1.15)continue;
+    var dx=ndc.x-AIM_X,dy=ndc.y-AIM_Y;
+    var score=dx*dx+dy*dy+p.distanceToSquared(camera.position)*.0004;
+    if(score<bestScore){bestScore=score;best=g;}
+  }
+  aimLock=best;
+  return best?targetAimPoint(best):fallbackAimPoint();
+}
+function syncAim(){
+  if(!camera||!crossEl)return;
+  camera.updateMatrixWorld();
+  var ndc=chooseAimPoint().project(camera);
+  if(!isFinite(ndc.x)||!isFinite(ndc.y)||ndc.z<-1||ndc.z>1){
+    ndc.x=AIM_X;ndc.y=AIM_Y;
+  }
+  lastPtr.x=Math.max(-.95,Math.min(.95,ndc.x));
+  lastPtr.y=Math.max(-.92,Math.min(.85,Math.min(ndc.y,AIM_Y)));
+  crossEl.style.left=((lastPtr.x+1)*50)+'%';
+  crossEl.style.top=((1-lastPtr.y)*50)+'%';
+}
+function fireAtAim(){
+  syncAim();
+  fire(lastPtr.x,lastPtr.y);
+}
+
 /* ================= 开火 ================= */
 function muzzleWorld(){
   var v=muzzles[weapon].clone();
@@ -468,10 +514,16 @@ function fire(nx,ny){
   guns[weapon].userData.kick=1;
   var ray=new THREE.Raycaster();
   ray.setFromCamera({x:nx,y:ny},camera);
-  var i,h;
-  if(weapon==='smg'){
-    cd=.09;sfx.smg();
-    var hits=ray.intersectObjects(bugHits,false);
+	  var i,h;
+	  if(weapon==='smg'){
+	    cd=.09;sfx.smg();
+	    if(aimLock&&!aimLock.userData.dead){
+	      var bp=targetAimPoint(aimLock);
+	      tracer(mw,bp,0xffee88);
+	      smashBug(aimLock,bp);
+	      return;
+	    }
+	    var hits=ray.intersectObjects(bugHits,false);
     if(hits.length){
       h=hits[0];
       tracer(mw,h.point,0xffee88);
@@ -479,9 +531,16 @@ function fire(nx,ny){
     }else{
       tracer(mw,ray.ray.at(40,new THREE.Vector3()),0xffee88);
     }
-  }else if(weapon==='shotgun'){
-    cd=.7;sfx.shotgun();shake=Math.min(1,shake+.25);
-    var tg=[];
+	  }else if(weapon==='shotgun'){
+	    cd=.7;sfx.shotgun();shake=Math.min(1,shake+.25);
+	    if(aimLock&&!aimLock.userData.dead){
+	      var cp=targetAimPoint(aimLock);
+	      tracer(mw,cp,0xffaa55);
+	      tracer(mw,cp.clone().add(new THREE.Vector3(.4,.3,0)),0xffaa55);
+	      shootCard(aimLock);
+	      return;
+	    }
+	    var tg=[];
     for(i=0;i<cards.length;i++){
       if(!cards[i].userData.dead&&ray.ray.distanceToPoint(cards[i].position)<2.1)tg.push(cards[i]);
     }
@@ -492,9 +551,15 @@ function fire(nx,ny){
     }else{
       tracer(mw,ray.ray.at(40,new THREE.Vector3()),0xffaa55);
     }
-  }else{
-    cd=.9;sfx.sniper();shake=Math.min(1,shake+.3);
-    var tb=[];
+	  }else{
+	    cd=.9;sfx.sniper();shake=Math.min(1,shake+.3);
+	    if(aimLock&&!aimLock.userData.dead){
+	      var pp=targetAimPoint(aimLock);
+	      tracer(mw,pp,0xcc88ff);
+	      popBubble(aimLock);
+	      return;
+	    }
+	    var tb=[];
     for(i=0;i<bubbles.length;i++){
       if(!bubbles[i].userData.dead&&ray.ray.distanceToPoint(bubbles[i].position)<bubbles[i].userData.r+.3)tb.push(bubbles[i]);
     }
@@ -595,6 +660,7 @@ function animate(){
   );
   camera.lookAt(curLook);
   shake*=.86;
+  syncAim();
 
   var g=guns[weapon];
   if(g){
@@ -603,7 +669,7 @@ function animate(){
     g.position.set(.42,-.38+Math.sin(now*1.7)*.008,-.9+k*.22);
     g.rotation.x=k*.16;
   }
-  if(firing&&weapon==='smg'&&playing)fire(AIM_X,AIM_Y);
+  if(firing&&weapon==='smg'&&playing)fireAtAim();
 
   var i,b,c;
   if(playing){
@@ -846,17 +912,16 @@ window.addEventListener('keydown',function(e){
   if(e.key==='1')switchWeapon('smg');
   if(e.key==='2')switchWeapon('shotgun');
   if(e.key==='3')switchWeapon('sniper');
-  if(e.key===' '){e.preventDefault();firing=true;fire(AIM_X,AIM_Y);}
+  if(e.key===' '){e.preventDefault();firing=true;fireAtAim();}
 });
 window.addEventListener('keyup',function(e){if(e.key===' ')firing=false;});
 window.addEventListener('pointerdown',function(e){
   if(!playing)return;
   if(e.target.closest&&e.target.closest('#weapon-bar'))return;
-  lastPtr.x=AIM_X;lastPtr.y=AIM_Y;
-  firing=true;fire(AIM_X,AIM_Y);
+  firing=true;fireAtAim();
 });
 window.addEventListener('pointerup',function(){firing=false;});
-window.addEventListener('pointermove',function(){lastPtr.x=AIM_X;lastPtr.y=AIM_Y;});
+window.addEventListener('pointermove',syncAim);
 window.addEventListener('contextmenu',function(e){e.preventDefault();});
 
 /* ================= 启动 ================= */
