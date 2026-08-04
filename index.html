@@ -33,7 +33,7 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
 #weapon-bar button{background:rgba(10,5,25,.85);border:2px solid rgba(255,255,255,.15);border-radius:12px;color:#ccc;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.5}
 #weapon-bar button span{display:block;font-size:10px;font-weight:400;color:#888}
 #weapon-bar button.sel{border-color:#ffd75f;color:#ffd75f;box-shadow:0 0 14px rgba(255,215,95,.35)}
-#crosshair{position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;z-index:14;display:none}
+#crosshair{position:fixed;left:50%;top:50%;width:34px;height:34px;transform:translate(-50%,-50%);pointer-events:none;z-index:14;display:none}
 #crosshair::before,#crosshair::after{content:'';position:absolute;background:#ffd75f;box-shadow:0 0 6px #ff6d00}
 #crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
 #crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%)}
@@ -183,7 +183,7 @@ var R={theme:'',anxiety:100,bugs:0,badReq:0,goodSaved:0,misfire:0,bubbles:0,maxC
 var playing=false,ended=false,weapon='smg',cd=0,timeLeft=90;
 var comboTimer=null,spawnInts=[],secondInt=null;
 var shake=0,firing=false;
-var lastPtr={x:0,y:-0.1};
+var lastPtr={x:0,y:0};
 var clock3=null;
 var bugs=[],cards=[],bubbles=[],effects=[];
 var bugHits=[],cardHits=[],bubbleHits=[];
@@ -598,7 +598,7 @@ function animate(){
     g.position.set(.42,-.38+Math.sin(now*1.7)*.008,-.9+k*.22);
     g.rotation.x=k*.16;
   }
-  if(firing&&weapon==='smg'&&playing)fire(lastPtr.x,lastPtr.y);
+  if(firing&&weapon==='smg'&&playing)fire(0,0);
 
   var i,b,c;
   if(playing){
@@ -847,18 +847,11 @@ window.addEventListener('keyup',function(e){if(e.key===' ')firing=false;});
 window.addEventListener('pointerdown',function(e){
   if(!playing)return;
   if(e.target.closest&&e.target.closest('#weapon-bar'))return;
-  var nx=(e.clientX/innerWidth)*2-1;
-  var ny=-(e.clientY/innerHeight)*2+1;
-  lastPtr.x=nx;lastPtr.y=ny;
-  firing=true;fire(nx,ny);
-  if(crossEl){crossEl.style.left=e.clientX+'px';crossEl.style.top=e.clientY+'px';}
+  lastPtr.x=0;lastPtr.y=0;
+  firing=true;fire(0,0);
 });
 window.addEventListener('pointerup',function(){firing=false;});
-window.addEventListener('pointermove',function(e){
-  lastPtr.x=(e.clientX/innerWidth)*2-1;
-  lastPtr.y=-(e.clientY/innerHeight)*2+1;
-  if(crossEl){crossEl.style.left=e.clientX+'px';crossEl.style.top=e.clientY+'px';}
-});
+window.addEventListener('pointermove',function(){lastPtr.x=0;lastPtr.y=0;});
 window.addEventListener('contextmenu',function(e){e.preventDefault();});
 
 /* ================= 启动 ================= */
