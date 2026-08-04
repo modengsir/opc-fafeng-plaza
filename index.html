@@ -469,14 +469,18 @@ function spawnBubble(){
 }
 
 function syncAim(){
-  lastPtr.x=AIM_X;lastPtr.y=AIM_Y;
   if(crossEl){
-    crossEl.style.left='50%';
-    crossEl.style.top='50%';
+    crossEl.style.left=((lastPtr.x+1)*50)+'%';
+    crossEl.style.top=((1-lastPtr.y)*50)+'%';
   }
 }
+function setAimFromPointer(e){
+  lastPtr.x=(e.clientX/innerWidth)*2-1;
+  lastPtr.y=-(e.clientY/innerHeight)*2+1;
+  syncAim();
+}
 function fireAtAim(){
-  fire(AIM_X,AIM_Y);
+  fire(lastPtr.x,lastPtr.y);
 }
 
 /* ================= 开火 ================= */
@@ -877,10 +881,11 @@ window.addEventListener('keyup',function(e){if(e.key===' ')firing=false;});
 window.addEventListener('pointerdown',function(e){
   if(!playing)return;
   if(e.target.closest&&e.target.closest('#weapon-bar'))return;
+  setAimFromPointer(e);
   firing=true;fireAtAim();
 });
 window.addEventListener('pointerup',function(){firing=false;});
-window.addEventListener('pointermove',syncAim);
+window.addEventListener('pointermove',setAimFromPointer);
 window.addEventListener('contextmenu',function(e){e.preventDefault();});
 
 /* ================= 启动 ================= */
