@@ -83,9 +83,9 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
   <div class="intro">
     全景视角，三大区域靶子一览无余：<br>
     <b>🔫 冲锋枪</b> → 扫射 Bug 垃圾场（长按连发）<br>
-    <b>💥 霰弹枪</b> → 轰掉离谱需求卡（别误伤合理需求！）<br>
-    <b>🎯 狙击枪</b> → 穿透狙击焦虑气泡（一枪串一串）<br><br>
-    ⚠️ 靶子逃跑前会<b>红闪警告</b>，别让它跑了！<br>
+    <b>💥 霰弹枪</b> → 轰退离谱需求人<br>
+    <b>🎯 狙击枪</b> → 狙退焦虑念头（一枪串一串）<br><br>
+    ⚠️ 人物贴脸前会<b>红闪警告</b>，别让它冲过来！<br>
     90 秒内把焦虑打到 0，领「今日发疯战报」
   </div>
   <button class="big-btn" onclick="toTheme()">😤 进广场开火</button>
@@ -196,6 +196,7 @@ var PLAY_Z=-8;
 var AIM_SCREEN_Y=.5;
 var AIM_X=0,AIM_Y=1-AIM_SCREEN_Y*2;
 var GUN_Z=-.72,GUN_KICK_Z=.16;
+var WALK_START_Z=PLAY_Z-7,WALK_WARN_Z=8.5,WALK_HIT_Z=12.4;
 
 /* ================= 状态 ================= */
 var R={theme:'',anxiety:100,bugs:0,badReq:0,goodSaved:0,misfire:0,bubbles:0,maxCombo:0,combo:0};
@@ -429,58 +430,103 @@ function showGun(w){
 }
 
 /* ================= 目标生成 ================= */
+function makePersonTarget(text,opt){
+  var g=new THREE.Group();
+  var body=new THREE.Mesh(new THREE.BoxGeometry(.82,1.02,.44),M(opt.body,opt.emissive,.85));
+  body.position.y=1.05;body.castShadow=true;g.add(body);
+  var neck=new THREE.Mesh(new THREE.BoxGeometry(.22,.18,.2),M(0xffc49b,0x2a1208,.18));
+  neck.position.y=1.62;g.add(neck);
+  var head=new THREE.Mesh(new THREE.SphereGeometry(.38,18,18),M(0xffd3ad,0x2a1208,.16));
+  head.position.set(0,1.9,.03);head.castShadow=true;g.add(head);
+  var hair=new THREE.Mesh(new THREE.BoxGeometry(.62,.16,.42),M(opt.hair||0x30212a,0,0));
+  hair.position.set(0,2.18,.02);g.add(hair);
+  for(var i=0;i<2;i++){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(.055,8,8),new THREE.MeshBasicMaterial({color:0x111122}));
+    eye.position.set(i? .14:-.14,1.94,.36);g.add(eye);
+  }
+  var mouth=new THREE.Mesh(new THREE.BoxGeometry(.18,.035,.035),new THREE.MeshBasicMaterial({color:0x5c1a24}));
+  mouth.position.set(0,1.76,.37);g.add(mouth);
+  var armMat=M(opt.trim||opt.body,opt.emissive,.65);
+  var lArm=new THREE.Mesh(new THREE.BoxGeometry(.16,.82,.16),armMat);
+  var rArm=new THREE.Mesh(new THREE.BoxGeometry(.16,.82,.16),armMat.clone());
+  lArm.position.set(-.55,1.03,.03);rArm.position.set(.55,1.03,.03);
+  lArm.rotation.z=.18;rArm.rotation.z=-.18;g.add(lArm);g.add(rArm);
+  var legMat=M(opt.leg||0x22263a,0,.25);
+  var lLeg=new THREE.Mesh(new THREE.BoxGeometry(.24,.72,.2),legMat);
+  var rLeg=new THREE.Mesh(new THREE.BoxGeometry(.24,.72,.2),legMat.clone());
+  lLeg.position.set(-.23,.36,0);rLeg.position.set(.23,.36,0);g.add(lLeg);g.add(rLeg);
+  var footMat=M(0x171722,0,.2);
+  var lFoot=new THREE.Mesh(new THREE.BoxGeometry(.34,.12,.42),footMat);
+  var rFoot=new THREE.Mesh(new THREE.BoxGeometry(.34,.12,.42),footMat.clone());
+  lFoot.position.set(-.23,.06,.16);rFoot.position.set(.23,.06,.16);g.add(lFoot);g.add(rFoot);
+  var lb=new THREE.Sprite(new THREE.SpriteMaterial({map:makeText(text,48,opt.labelColor||'#ffffff','rgba(0,0,0,.72)','rgba(0,0,0,.95)'),transparent:true,depthTest:false}));
+  lb.position.y=2.75;lb.scale.set(4.35,1.36,1);g.add(lb);
+  var hit=new THREE.Mesh(new THREE.BoxGeometry(1.35,2.35,1.05),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0,depthWrite:false}));
+  hit.position.y=1.23;hit.userData.root=g;g.add(hit);
+  g.userData={
+    age:0,
+    laneX:opt.x,
+    speed:opt.speed,
+    phase:Math.random()*6.28,
+    sway:.65+Math.random()*.45,
+    r:1.15,
+    hitY:1.3,
+    hit:hit,
+    body:body,
+    good:false,
+    limbs:{lArm:lArm,rArm:rArm,lLeg:lLeg,rLeg:rLeg,head:head,label:lb}
+  };
+  return g;
+}
+function targetPoint(g){
+  return g.position.clone().add(new THREE.Vector3(0,g.userData.hitY||1.25,0));
+}
+function unlinkHits(g,list){
+  g.traverse(function(o){if(o.isMesh){var j=list.indexOf(o);if(j>=0)list.splice(j,1);}});
+}
+function walkTarget(g,dt,now){
+  var u=g.userData;
+  u.age+=dt;
+  g.position.z+=u.speed*dt;
+  var laneX=u.laneX+Math.sin(now*.9+u.phase)*u.sway;
+  g.position.x+=(laneX-g.position.x)*Math.min(1,dt*2.4);
+  g.position.y=Math.sin(now*6+u.phase)*.025;
+  g.rotation.y=Math.sin(now*1.1+u.phase)*.08;
+  var step=Math.sin(now*8+u.phase);
+  if(u.limbs){
+    u.limbs.lLeg.rotation.x=step*.45;
+    u.limbs.rLeg.rotation.x=-step*.45;
+    u.limbs.lArm.rotation.x=-step*.28;
+    u.limbs.rArm.rotation.x=step*.28;
+    u.limbs.head.position.y=1.9+Math.abs(step)*.035;
+    u.limbs.label.position.y=2.75+Math.abs(step)*.035;
+  }
+  if(g.position.z>WALK_WARN_Z&&u.body&&u.body.material){
+    u.body.material.emissive.setHex(0xff2222);
+    u.body.material.emissiveIntensity=.35+.35*Math.sin(now*18);
+  }
+  return g.position.z>WALK_HIT_Z;
+}
 function spawnBug(){
   if(!playing)return;
-  var g=new THREE.Group();
   var txt=BUGS[Math.floor(Math.random()*BUGS.length)];
-  var body=new THREE.Mesh(new THREE.BoxGeometry(1.5,1.5,1.5),M(0x4aaf4a,0x2a8a2a,.9));
-  body.castShadow=true;g.add(body);
-  var wire=new THREE.Mesh(new THREE.BoxGeometry(1.57,1.57,1.57),new THREE.MeshBasicMaterial({color:0x88ff88,wireframe:true}));
-  g.add(wire);
-  var eyes=[[.3,.22],[-.3,.22]];
-  for(var i=0;i<2;i++){
-    var e=new THREE.Mesh(new THREE.SphereGeometry(.12,8,8),new THREE.MeshBasicMaterial({color:0xff5555}));
-    e.position.set(eyes[i][0],eyes[i][1],.78);g.add(e);
-  }
-  var lb=new THREE.Sprite(new THREE.SpriteMaterial({map:makeText(txt,58,'#ffffff'),transparent:true,depthTest:false}));
-  lb.position.y=1.55;lb.scale.set(4.2,1.31,1);g.add(lb);
-  g.position.set(-9+(Math.random()-.5)*7,-1.6,PLAY_Z+(Math.random()-.5)*5);
-  g.userData={age:0,spin:Math.random()*2-1};
-  body.userData.root=g;
-  scene.add(g);bugs.push(g);bugHits.push(body);
+  var g=makePersonTarget('🐛 '+txt,{x:-9,body:0x39b85a,trim:0x73e28a,leg:0x1f2f24,emissive:0x196b30,labelColor:'#d8ffd8',speed:4.3+Math.random()*.8});
+  g.position.set(-9+(Math.random()-.5)*2.8,0,WALK_START_Z-Math.random()*2.5);
+  scene.add(g);bugs.push(g);bugHits.push(g.userData.hit);
 }
 function spawnCard(){
   if(!playing)return;
-  var good=Math.random()<0.35;
-  var pool=good?REQ_GOOD:REQ_BAD;
-  var txt=pool[Math.floor(Math.random()*pool.length)];
-  var g=new THREE.Group();
-  var cardColor=good?0x88ffcc:0xffaa66;
-  var emColor=good?0x33cc88:0xff7722;
-  var card=new THREE.Mesh(new THREE.BoxGeometry(3.8,2.4,.08),new THREE.MeshPhongMaterial({color:cardColor,emissive:emColor,emissiveIntensity:.9}));
-  card.castShadow=true;g.add(card);
-  var frame=new THREE.Mesh(new THREE.BoxGeometry(3.88,2.48,.04),new THREE.MeshBasicMaterial({color:good?0x66ffaa:0xffcc44,wireframe:true}));
-  g.add(frame);
-  var t=new THREE.Sprite(new THREE.SpriteMaterial({map:makeText(txt,52,'#ffffff',null,'rgba(0,0,0,.9)'),transparent:true,depthTest:false}));
-  t.position.z=.1;t.scale.set(3.7,1.15,1);g.add(t);
-  g.position.set(4.2,2.3+Math.random()*.8,PLAY_Z-1);
-  g.userData={good:good,speed:1+Math.random()*.4,phase:Math.random()*6};
-  card.userData.root=g;
-  scene.add(g);cards.push(g);cardHits.push(card);
+  var txt=REQ_BAD[Math.floor(Math.random()*REQ_BAD.length)];
+  var g=makePersonTarget('📦 '+txt,{x:0,body:0xff8848,trim:0xffb067,leg:0x3a2130,emissive:0xaa3f16,labelColor:'#ffe2bd',speed:3.7+Math.random()*.65});
+  g.position.set((Math.random()-.5)*2.6,0,WALK_START_Z-1-Math.random()*2);
+  scene.add(g);cards.push(g);cardHits.push(g.userData.hit);
 }
 function spawnBubble(){
   if(!playing)return;
   var txt=BUBBLES[Math.floor(Math.random()*BUBBLES.length)];
-  var r=.9+Math.random()*.5;
-  var g=new THREE.Group();
-  var b=new THREE.Mesh(new THREE.SphereGeometry(r,16,16),new THREE.MeshPhongMaterial({color:0xb080e0,transparent:true,opacity:.85,emissive:0x8a4aba,emissiveIntensity:.8,shininess:60}));
-  b.castShadow=true;g.add(b);
-  var lb=new THREE.Sprite(new THREE.SpriteMaterial({map:makeText(txt,54,'#ffffff'),transparent:true,depthTest:false}));
-  lb.scale.set(r*4.4,r*1.37,1);g.add(lb);
-  g.position.set(9+(Math.random()-.5)*6,1.2,PLAY_Z+(Math.random()-.5)*5);
-  g.userData={r:r,phase:Math.random()*6};
-  b.userData.root=g;
-  scene.add(g);bubbles.push(g);bubbleHits.push(b);
+  var g=makePersonTarget('💭 '+txt,{x:9,body:0x9a62d8,trim:0xc084ff,leg:0x312148,emissive:0x683aa0,labelColor:'#ead6ff',speed:4+Math.random()*.75});
+  g.position.set(9+(Math.random()-.5)*2.8,0,WALK_START_Z-Math.random()*2.5);
+  scene.add(g);bubbles.push(g);bubbleHits.push(g.userData.hit);
 }
 
 function syncAim(){
@@ -526,11 +572,11 @@ function fire(nx,ny){
     cd=.7;sfx.shotgun();shake=Math.min(1,shake+.25);
     var tg=[];
     for(i=0;i<cards.length;i++){
-      if(!cards[i].userData.dead&&ray.ray.distanceToPoint(cards[i].position)<2.1)tg.push(cards[i]);
+      if(!cards[i].userData.dead&&ray.ray.distanceToPoint(targetPoint(cards[i]))<1.75)tg.push(cards[i]);
     }
     if(tg.length){
-      tracer(mw,tg[0].position.clone(),0xffaa55);
-      tracer(mw,tg[0].position.clone().add(new THREE.Vector3(.4,.3,0)),0xffaa55);
+      tracer(mw,targetPoint(tg[0]),0xffaa55);
+      tracer(mw,targetPoint(tg[0]).add(new THREE.Vector3(.4,.3,0)),0xffaa55);
       for(i=0;i<tg.length;i++)shootCard(tg[i]);
     }else{
       tracer(mw,ray.ray.at(40,new THREE.Vector3()),0xffaa55);
@@ -539,14 +585,14 @@ function fire(nx,ny){
     cd=.9;sfx.sniper();shake=Math.min(1,shake+.3);
     var tb=[];
     for(i=0;i<bubbles.length;i++){
-      if(!bubbles[i].userData.dead&&ray.ray.distanceToPoint(bubbles[i].position)<bubbles[i].userData.r+.3)tb.push(bubbles[i]);
+      if(!bubbles[i].userData.dead&&ray.ray.distanceToPoint(targetPoint(bubbles[i]))<(bubbles[i].userData.r||1.15)+.35)tb.push(bubbles[i]);
     }
     if(tb.length){
-      var far=tb[0].position.clone();
+      var far=tb[0];
       for(i=0;i<tb.length;i++){
-        if(tb[i].position.distanceTo(camera.position)>far.distanceTo(camera.position))far=tb[i].position.clone();
+        if(targetPoint(tb[i]).distanceTo(camera.position)>targetPoint(far).distanceTo(camera.position))far=tb[i];
       }
-      tracer(mw,far,0xcc88ff);
+      tracer(mw,targetPoint(far),0xcc88ff);
       tb.sort(function(a,b){return a.position.distanceTo(camera.position)-b.position.distanceTo(camera.position);});
       for(i=0;i<tb.length;i++)popBubble(tb[i]);
     }else{
@@ -558,7 +604,7 @@ function smashBug(g,pt){
   if(g.userData.dead)return;
   g.userData.dead=true;
   var i=bugs.indexOf(g);if(i>=0)bugs.splice(i,1);
-  g.traverse(function(o){if(o.isMesh){var j=bugHits.indexOf(o);if(j>=0)bugHits.splice(j,1);}});
+  unlinkHits(g,bugHits);
   R.bugs++;addCombo();setAnx(R.anxiety-2);sfx.hit();
   burst(pt||g.position,0x88ff88,R.combo>=5?16:9);
   floatText('焦虑 -2','#ff8a80',g.position.clone().add(new THREE.Vector3(0,1.8,0)),.85);
@@ -570,17 +616,10 @@ function shootCard(g){
   if(g.userData.dead)return;
   g.userData.dead=true;
   var i=cards.indexOf(g);if(i>=0)cards.splice(i,1);
-  g.traverse(function(o){if(o.isMesh){var j=cardHits.indexOf(o);if(j>=0)cardHits.splice(j,1);}});
-  if(g.userData.good){
-    R.misfire++;setAnx(R.anxiety+6);resetCombo();sfx.bad();shake=Math.min(1.2,shake+.5);
-    burst(g.position,0xff5252,14);
-    floatText('误伤合理需求! +6','#ff5252',g.position.clone().add(new THREE.Vector3(0,1.5,0)),.95);
-    toast('😱 这是合理需求啊！焦虑+6');
-  }else{
-    R.badReq++;addCombo();setAnx(R.anxiety-4);sfx.hit();
-    burst(g.position,0xffa040,14);
-    floatText('🎁 需求边界卡','#ffd75f',g.position.clone().add(new THREE.Vector3(0,1.5,0)),.95);
-  }
+  unlinkHits(g,cardHits);
+  R.badReq++;addCombo();setAnx(R.anxiety-4);sfx.hit();
+  burst(g.position,0xffa040,14);
+  floatText('离谱需求 -4','#ffd75f',g.position.clone().add(new THREE.Vector3(0,1.5,0)),.95);
   effects.push({type:'smash',obj:g,t:0});
   checkWin();
 }
@@ -588,11 +627,11 @@ function popBubble(g){
   if(g.userData.dead)return;
   g.userData.dead=true;
   var i=bubbles.indexOf(g);if(i>=0)bubbles.splice(i,1);
-  g.traverse(function(o){if(o.isMesh){var j=bubbleHits.indexOf(o);if(j>=0)bubbleHits.splice(j,1);}});
+  unlinkHits(g,bubbleHits);
   R.bubbles++;addCombo();setAnx(R.anxiety-3);sfx.pop();
   burst(g.position,0xc9a8ff,12);
   floatText('焦虑 -3','#ff8a80',g.position.clone().add(new THREE.Vector3(0,1.2,0)),.85);
-  effects.push({type:'bpop',obj:g,t:0});
+  effects.push({type:'smash',obj:g,t:0});
   scene.fog.color.lerp(new THREE.Color(0x4a3a6e),.05);
   scene.background.lerp(new THREE.Color(0x4a3a6e),.05);
   checkWin();
@@ -654,38 +693,26 @@ function animate(){
     for(i=bugs.length-1;i>=0;i--){
       b=bugs[i];
       if(b.userData.dead)continue;
-      b.userData.age+=dt;
-      var a=b.userData.age;
-      if(a<.25)b.position.y=-1.6+2.2*(a/.25);
-      else b.position.y=.7+Math.sin(now*3+i)*.06;
-      b.rotation.y+=dt*b.userData.spin;
-      var body=b.children[0];
-      if(a>2.5){body.material.emissive.setHex(0xff2222);body.material.emissiveIntensity=.5+.5*Math.sin(now*18);}
-      if(a>3.5){
+      if(walkTarget(b,dt,now)){
         b.userData.dead=true;bugs.splice(i,1);
-        b.traverse(function(o){if(o.isMesh){var j=bugHits.indexOf(o);if(j>=0)bugHits.splice(j,1);}});
+        unlinkHits(b,bugHits);
         effects.push({type:'escape',obj:b,t:0});
-        setAnx(R.anxiety+3);resetCombo();toast('😰 Bug 跑了，焦虑+3');
+        setAnx(R.anxiety+4);resetCombo();toast('😰 Bug 冲到脸上了，焦虑+4');
       }
     }
     for(i=cards.length-1;i>=0;i--){
       c=cards[i];
       if(c.userData.dead)continue;
-      c.position.x-=c.userData.speed*dt;
-      c.position.y+=Math.sin(now*2+c.userData.phase)*.003;
-      c.rotation.z=Math.sin(now*1.5+c.userData.phase)*.05;
-      var card=c.children[0];
-      if(c.position.x<-1.6){card.material.emissive.setHex(0xff2222);card.material.emissiveIntensity=.4+.4*Math.sin(now*18);}
-      if(c.position.x<-3.6){
+      if(walkTarget(c,dt,now)){
         c.userData.dead=true;cards.splice(i,1);
-        c.traverse(function(o){if(o.isMesh){var j=cardHits.indexOf(o);if(j>=0)cardHits.splice(j,1);}});
+        unlinkHits(c,cardHits);
         if(c.userData.good){
           R.goodSaved++;setAnx(R.anxiety-1);sfx.ding();
           floatText('✅ 存入白板','#a5d6a7',c.position.clone().add(new THREE.Vector3(0,1.3,0)),.9);
           burst(c.position,0x66bb6a,8);
         }else{
-          setAnx(R.anxiety+4);resetCombo();sfx.bad();
-          floatText('离谱需求混进白板! +4','#ff5252',c.position.clone().add(new THREE.Vector3(0,1.3,0)),.95);
+          setAnx(R.anxiety+5);resetCombo();sfx.bad();
+          floatText('离谱需求贴脸! +5','#ff5252',c.position.clone().add(new THREE.Vector3(0,1.3,0)),.95);
           burst(c.position,0xff5252,10);
         }
         effects.push({type:'smash',obj:c,t:0});
@@ -694,15 +721,11 @@ function animate(){
     for(i=bubbles.length-1;i>=0;i--){
       b=bubbles[i];
       if(b.userData.dead)continue;
-      b.position.y+=.4*dt;
-      b.position.x+=Math.sin(now+b.userData.phase)*.004;
-      var bb=b.children[0];
-      if(b.position.y>5.6){bb.material.emissive.setHex(0xff2222);bb.material.emissiveIntensity=.5+.5*Math.sin(now*18);}
-      if(b.position.y>7){
+      if(walkTarget(b,dt,now)){
         b.userData.dead=true;bubbles.splice(i,1);
-        b.traverse(function(o){if(o.isMesh){var j=bubbleHits.indexOf(o);if(j>=0)bubbleHits.splice(j,1);}});
+        unlinkHits(b,bubbleHits);
         effects.push({type:'escape',obj:b,t:0});
-        setAnx(R.anxiety+3);resetCombo();toast('💭 焦虑飘走了，焦虑+3');
+        setAnx(R.anxiety+4);resetCombo();toast('💭 焦虑压过来了，焦虑+4');
       }
     }
   }
@@ -791,7 +814,7 @@ function toTheme(){initAudio();show('scr-theme');}
 function pickTheme(t){
   R.theme=t;sfx.good();show(null);
   document.getElementById('pt-big').textContent='🔫 自由开火时间';
-  document.getElementById('pt-small').textContent='三大区域靶子全部可见\n按 1/2/3 或点下方按钮换枪\n靶子红闪=马上要跑，快打！';
+  document.getElementById('pt-small').textContent='三大靶位的人物会往你这边冲\n看头顶文字，按 1/2/3 或点按钮换枪\n身体发红=快贴脸了，立刻开火！';
   document.getElementById('phase-title').style.display='block';
   setTimeout(function(){
     document.getElementById('phase-title').style.display='none';
@@ -808,7 +831,7 @@ function startGame(){
   spawnInts.push(setInterval(spawnBug,800));
   spawnInts.push(setInterval(spawnCard,2600));
   spawnInts.push(setInterval(spawnBubble,1000));
-  spawnBug();spawnBug();spawnBubble();spawnBubble();
+  spawnBug();spawnBug();spawnCard();spawnBubble();spawnBubble();
   secondInt=setInterval(function(){
     if(!playing)return;
     timeLeft--;
@@ -856,11 +879,9 @@ function endGame(){
   document.getElementById('report-card').innerHTML=
     '<h2>🤪 OPC 发疯广场 · 今日战报</h2>'+
     '<div class="stitle">今日破防源：'+themeName+'</div>'+
-    '<div class="line"><span class="k">🔫 突突掉 Bug</span><span class="v">'+R.bugs+' 个</span></div>'+
-    '<div class="line"><span class="k">💥 轰掉离谱需求</span><span class="v">'+R.badReq+' 张</span></div>'+
-    '<div class="line"><span class="k">📋 护送合理需求进白板</span><span class="v">'+R.goodSaved+' 张</span></div>'+
-    '<div class="line"><span class="k">⚠️ 误伤合理需求</span><span class="v">'+R.misfire+' 次</span></div>'+
-    '<div class="line"><span class="k">🎯 狙爆焦虑气泡</span><span class="v">'+R.bubbles+' 个</span></div>'+
+    '<div class="line"><span class="k">🔫 击退 Bug 人</span><span class="v">'+R.bugs+' 个</span></div>'+
+    '<div class="line"><span class="k">💥 轰退离谱需求</span><span class="v">'+R.badReq+' 个</span></div>'+
+    '<div class="line"><span class="k">🎯 狙退焦虑念头</span><span class="v">'+R.bubbles+' 个</span></div>'+
     '<div class="line"><span class="k">最高连击</span><span class="v">x'+R.maxCombo+'</span></div>'+
     '<div class="line"><span class="k">焦虑清除</span><span class="v">'+cleared+'%</span></div>'+
     '<div class="award"><div style="font-size:11px;color:#aaa;margin-bottom:4px">今日称号</div><div class="t">「'+title+'」</div></div>'+
@@ -874,7 +895,7 @@ function endGame(){
 function copyReport(){
   var cleared=100-Math.round(R.anxiety);
   var themeName=THEMES[R.theme]||'创业破事';
-  var txt='OPC 发疯广场今日战报\n今日破防源：'+themeName+'\n🔫 突突掉 Bug：'+R.bugs+' 个\n💥 轰掉离谱需求：'+R.badReq+' 张\n📋 护送合理需求：'+R.goodSaved+' 张\n🎯 狙爆焦虑气泡：'+R.bubbles+' 个\n焦虑清除：'+cleared+'%\n现实里不能发疯，游戏里优雅发疯。🤪';
+  var txt='OPC 发疯广场今日战报\n今日破防源：'+themeName+'\n🔫 击退 Bug 人：'+R.bugs+' 个\n💥 轰退离谱需求：'+R.badReq+' 个\n🎯 狙退焦虑念头：'+R.bubbles+' 个\n焦虑清除：'+cleared+'%\n现实里不能发疯，游戏里优雅发疯。🤪';
   if(navigator.clipboard){
     navigator.clipboard.writeText(txt).then(function(){toast('📋 已复制，去晒战报！');});
   }else{
