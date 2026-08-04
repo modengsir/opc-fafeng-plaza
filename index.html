@@ -82,9 +82,10 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
   <div class="sub">枪械版 · 把创业破事全部突突了</div>
   <div class="intro">
     全景视角，三大区域靶子一览无余：<br>
-    <b>🔫 冲锋枪</b> → 扫射 Bug 垃圾场（长按连发）<br>
-    <b>💥 霰弹枪</b> → 轰退离谱需求人<br>
-    <b>🎯 狙击枪</b> → 狙退焦虑念头（一枪串一串）<br><br>
+    任意枪都能打三种靶人：<br>
+    <b>🔫 冲锋枪</b> → 快速点杀（长按连发）<br>
+    <b>💥 霰弹枪</b> → 扇面轰退（适合扎堆）<br>
+    <b>🎯 狙击枪</b> → 直线穿透（一枪串一串）<br><br>
     ⚠️ 人物贴脸前会<b>红闪警告</b>，别让它冲过来！<br>
     90 秒内把焦虑打到 0，领「今日发疯战报」
   </div>
@@ -112,14 +113,14 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
   <div class="right">
     <div>⏱ <span id="timer">01:30</span></div>
     <div>🔥 连击 <span id="combo-val">0</span></div>
-    <div>📍 <span id="zone-name">Bug 垃圾场</span></div>
+    <div>📍 <span id="zone-name">全场压制</span></div>
   </div>
 </div>
 
 <div id="weapon-bar">
-  <button id="wb-smg" class="sel" onclick="switchWeapon('smg')">🔫 冲锋枪<span>1 · Bug垃圾场</span></button>
-  <button id="wb-shotgun" onclick="switchWeapon('shotgun')">💥 霰弹枪<span>2 · 需求回收站</span></button>
-  <button id="wb-sniper" onclick="switchWeapon('sniper')">🎯 狙击枪<span>3 · 焦虑气泡池</span></button>
+  <button id="wb-smg" class="sel" onclick="switchWeapon('smg')">🔫 冲锋枪<span>1 · 快速扫射</span></button>
+  <button id="wb-shotgun" onclick="switchWeapon('shotgun')">💥 霰弹枪<span>2 · 扇面轰退</span></button>
+  <button id="wb-sniper" onclick="switchWeapon('sniper')">🎯 狙击枪<span>3 · 直线穿透</span></button>
 </div>
 
 <div id="crosshair"><div class="dot"></div></div>
@@ -173,10 +174,10 @@ function seq(fs){
   }
 }
 var sfx={
-  smg:function(){noiseBurst(.05,3200,'highpass',.14);tone(880,.04,'square',.05);},
-  shotgun:function(){noiseBurst(.2,750,'lowpass',.32);tone(110,.14,'sine',.28);},
-  sniper:function(){noiseBurst(.12,1800,'bandpass',.24);tone(1500,.06,'sawtooth',.1);setTimeout(function(){tone(600,.15,'sine',.06);},70);},
-  hit:function(){tone(200,.1,'sine',.2);noiseBurst(.06,900,'lowpass',.12);},
+  smg:function(){noiseBurst(.07,4200,'highpass',.22);tone(130,.055,'square',.16);setTimeout(function(){tone(920,.035,'square',.06);},18);},
+  shotgun:function(){noiseBurst(.28,850,'lowpass',.45);tone(72,.18,'sawtooth',.36);setTimeout(function(){noiseBurst(.16,2600,'highpass',.14);tone(180,.08,'square',.12);},70);},
+  sniper:function(){noiseBurst(.11,2600,'bandpass',.32);tone(95,.2,'sawtooth',.34);tone(1500,.04,'square',.14);setTimeout(function(){tone(420,.22,'sine',.09);noiseBurst(.12,1200,'lowpass',.08);},90);},
+  hit:function(){tone(260,.07,'square',.18);noiseBurst(.08,1300,'bandpass',.16);},
   pop:function(){tone(500+Math.random()*350,.08,'square',.1);},
   combo:function(n){tone(420+Math.min(n,20)*40,.1,'sine',.1);},
   good:function(){tone(523,.1);setTimeout(function(){tone(659,.1);},80);setTimeout(function(){tone(784,.15);},160);},
@@ -197,6 +198,7 @@ var AIM_SCREEN_Y=.5;
 var AIM_X=0,AIM_Y=1-AIM_SCREEN_Y*2;
 var GUN_Z=-.72,GUN_KICK_Z=.16;
 var WALK_START_Z=PLAY_Z-7,WALK_WARN_Z=8.5,WALK_HIT_Z=12.4;
+var WALK_SPEED={bug:[2.05,.35],card:[1.85,.3],bubble:[1.95,.35]};
 
 /* ================= 状态 ================= */
 var R={theme:'',anxiety:100,bugs:0,badReq:0,goodSaved:0,misfire:0,bubbles:0,maxCombo:0,combo:0};
@@ -212,20 +214,25 @@ var scene,camera,renderer,raycaster;
 
 /* 【修正】机位：拉远+压低视线，保证靶子在画面中央且准星对齐 */
 var CAM_CONF={
-  smg:{pos:[-7.5,4.8,18],look:[-7.5,1.4,PLAY_Z],fov:64},
-  shotgun:{pos:[0,4.8,18],look:[0,1.4,PLAY_Z],fov:62},
-  sniper:{pos:[7.5,4.8,18],look:[7.5,1.4,PLAY_Z],fov:50}
+  smg:{pos:[0,4.8,20],look:[0,1.4,PLAY_Z],fov:66},
+  shotgun:{pos:[0,4.8,20],look:[0,1.4,PLAY_Z],fov:66},
+  sniper:{pos:[0,4.8,20],look:[0,1.4,PLAY_Z],fov:62}
 };
 function viewportFit(){
   var aspect=innerWidth/innerHeight;
   return Math.max(0,Math.min(1,(aspect-1.45)/.75));
 }
+function narrowFit(){
+  var aspect=innerWidth/innerHeight;
+  return Math.max(0,Math.min(1,(1.2-aspect)/.75));
+}
 function fitCam(w){
   var c=CAM_CONF[w],f=viewportFit();
+  var n=narrowFit();
   return {
-    pos:[c.pos[0],c.pos[1]+f*.8,c.pos[2]+f*7],
+    pos:[c.pos[0],c.pos[1]+f*.8+n*1.4,c.pos[2]+f*7+n*16],
     look:[c.look[0],c.look[1],c.look[2]],
-    fov:c.fov+f*(w==='sniper'?10:8)
+    fov:c.fov+f*(w==='sniper'?8:7)+n*12
   };
 }
 var targetFov=fitCam('smg').fov;
@@ -473,6 +480,7 @@ function makePersonTarget(text,opt){
     hitY:1.3,
     hit:hit,
     body:body,
+    kind:opt.kind,
     good:false,
     limbs:{lArm:lArm,rArm:rArm,lLeg:lLeg,rLeg:rLeg,head:head,label:lb}
   };
@@ -480,6 +488,22 @@ function makePersonTarget(text,opt){
 }
 function targetPoint(g){
   return g.position.clone().add(new THREE.Vector3(0,g.userData.hitY||1.25,0));
+}
+function allTargets(){
+  return bugs.concat(cards,bubbles);
+}
+function allHitMeshes(){
+  return bugHits.concat(cardHits,bubbleHits);
+}
+function defeatTarget(g,pt){
+  if(!g||g.userData.dead)return;
+  if(g.userData.kind==='bug')smashBug(g,pt);
+  else if(g.userData.kind==='card')shootCard(g);
+  else popBubble(g);
+}
+function walkSpeed(kind){
+  var s=WALK_SPEED[kind]||[2,.3];
+  return s[0]+Math.random()*s[1];
 }
 function unlinkHits(g,list){
   g.traverse(function(o){if(o.isMesh){var j=list.indexOf(o);if(j>=0)list.splice(j,1);}});
@@ -510,21 +534,21 @@ function walkTarget(g,dt,now){
 function spawnBug(){
   if(!playing)return;
   var txt=BUGS[Math.floor(Math.random()*BUGS.length)];
-  var g=makePersonTarget('🐛 '+txt,{x:-9,body:0x39b85a,trim:0x73e28a,leg:0x1f2f24,emissive:0x196b30,labelColor:'#d8ffd8',speed:4.3+Math.random()*.8});
+  var g=makePersonTarget('🐛 '+txt,{x:-9,body:0x39b85a,trim:0x73e28a,leg:0x1f2f24,emissive:0x196b30,labelColor:'#d8ffd8',speed:walkSpeed('bug'),kind:'bug'});
   g.position.set(-9+(Math.random()-.5)*2.8,0,WALK_START_Z-Math.random()*2.5);
   scene.add(g);bugs.push(g);bugHits.push(g.userData.hit);
 }
 function spawnCard(){
   if(!playing)return;
   var txt=REQ_BAD[Math.floor(Math.random()*REQ_BAD.length)];
-  var g=makePersonTarget('📦 '+txt,{x:0,body:0xff8848,trim:0xffb067,leg:0x3a2130,emissive:0xaa3f16,labelColor:'#ffe2bd',speed:3.7+Math.random()*.65});
+  var g=makePersonTarget('📦 '+txt,{x:0,body:0xff8848,trim:0xffb067,leg:0x3a2130,emissive:0xaa3f16,labelColor:'#ffe2bd',speed:walkSpeed('card'),kind:'card'});
   g.position.set((Math.random()-.5)*2.6,0,WALK_START_Z-1-Math.random()*2);
   scene.add(g);cards.push(g);cardHits.push(g.userData.hit);
 }
 function spawnBubble(){
   if(!playing)return;
   var txt=BUBBLES[Math.floor(Math.random()*BUBBLES.length)];
-  var g=makePersonTarget('💭 '+txt,{x:9,body:0x9a62d8,trim:0xc084ff,leg:0x312148,emissive:0x683aa0,labelColor:'#ead6ff',speed:4+Math.random()*.75});
+  var g=makePersonTarget('💭 '+txt,{x:9,body:0x9a62d8,trim:0xc084ff,leg:0x312148,emissive:0x683aa0,labelColor:'#ead6ff',speed:walkSpeed('bubble'),kind:'bubble'});
   g.position.set(9+(Math.random()-.5)*2.8,0,WALK_START_Z-Math.random()*2.5);
   scene.add(g);bubbles.push(g);bubbleHits.push(g.userData.hit);
 }
@@ -560,32 +584,33 @@ function fire(nx,ny){
   var i,h;
   if(weapon==='smg'){
     cd=.09;sfx.smg();
-    var hits=ray.intersectObjects(bugHits,false);
+    var hits=ray.intersectObjects(allHitMeshes(),false);
     if(hits.length){
       h=hits[0];
       tracer(mw,h.point,0xffee88);
-      smashBug(h.object.userData.root,h.point);
+      defeatTarget(h.object.userData.root,h.point);
     }else{
       tracer(mw,ray.ray.at(40,new THREE.Vector3()),0xffee88);
     }
   }else if(weapon==='shotgun'){
     cd=.7;sfx.shotgun();shake=Math.min(1,shake+.25);
-    var tg=[];
-    for(i=0;i<cards.length;i++){
-      if(!cards[i].userData.dead&&ray.ray.distanceToPoint(targetPoint(cards[i]))<1.75)tg.push(cards[i]);
+    var tg=[],targets=allTargets();
+    for(i=0;i<targets.length;i++){
+      if(!targets[i].userData.dead&&ray.ray.distanceToPoint(targetPoint(targets[i]))<2.05)tg.push(targets[i]);
     }
     if(tg.length){
+      tg.sort(function(a,b){return targetPoint(a).distanceTo(camera.position)-targetPoint(b).distanceTo(camera.position);});
       tracer(mw,targetPoint(tg[0]),0xffaa55);
       tracer(mw,targetPoint(tg[0]).add(new THREE.Vector3(.4,.3,0)),0xffaa55);
-      for(i=0;i<tg.length;i++)shootCard(tg[i]);
+      for(i=0;i<tg.length;i++)defeatTarget(tg[i]);
     }else{
       tracer(mw,ray.ray.at(40,new THREE.Vector3()),0xffaa55);
     }
   }else{
     cd=.9;sfx.sniper();shake=Math.min(1,shake+.3);
-    var tb=[];
-    for(i=0;i<bubbles.length;i++){
-      if(!bubbles[i].userData.dead&&ray.ray.distanceToPoint(targetPoint(bubbles[i]))<(bubbles[i].userData.r||1.15)+.35)tb.push(bubbles[i]);
+    var tb=[],all=allTargets();
+    for(i=0;i<all.length;i++){
+      if(!all[i].userData.dead&&ray.ray.distanceToPoint(targetPoint(all[i]))<(all[i].userData.r||1.15)+.35)tb.push(all[i]);
     }
     if(tb.length){
       var far=tb[0];
@@ -594,7 +619,7 @@ function fire(nx,ny){
       }
       tracer(mw,targetPoint(far),0xcc88ff);
       tb.sort(function(a,b){return a.position.distanceTo(camera.position)-b.position.distanceTo(camera.position);});
-      for(i=0;i<tb.length;i++)popBubble(tb[i]);
+      for(i=0;i<tb.length;i++)defeatTarget(tb[i]);
     }else{
       tracer(mw,ray.ray.at(40,new THREE.Vector3()),0xcc88ff);
     }
@@ -650,9 +675,9 @@ function switchWeapon(w){
   camPosT.set(c.pos[0],c.pos[1],c.pos[2]);
   camLookT.set(c.look[0],c.look[1],c.look[2]);
   targetFov=c.fov;
-  var zn={smg:'Bug 垃圾场',shotgun:'需求回收站',sniper:'焦虑气泡池'};
+  var zn={smg:'全场扫射',shotgun:'全场轰退',sniper:'全场穿透'};
   document.getElementById('zone-name').textContent=zn[w];
-  var tt={smg:'🔫 冲锋枪就位 · 长按扫射 Bug！',shotgun:'💥 霰弹枪就位 · 只轰离谱需求！',sniper:'🎯 狙击枪就位 · 开镜穿透气泡！'};
+  var tt={smg:'🔫 冲锋枪就位 · 三种靶人都能扫！',shotgun:'💥 霰弹枪就位 · 三路扎堆一起轰！',sniper:'🎯 狙击枪就位 · 三种靶人都能穿！'};
   toast(tt[w]);
 }
 
@@ -814,7 +839,7 @@ function toTheme(){initAudio();show('scr-theme');}
 function pickTheme(t){
   R.theme=t;sfx.good();show(null);
   document.getElementById('pt-big').textContent='🔫 自由开火时间';
-  document.getElementById('pt-small').textContent='三大靶位的人物会往你这边冲\n看头顶文字，按 1/2/3 或点按钮换枪\n身体发红=快贴脸了，立刻开火！';
+  document.getElementById('pt-small').textContent='三大靶位的人物会慢慢往你这边冲\n任意枪都能打任意靶人，按 1/2/3 换手感\n身体发红=快贴脸了，立刻开火！';
   document.getElementById('phase-title').style.display='block';
   setTimeout(function(){
     document.getElementById('phase-title').style.display='none';
@@ -828,9 +853,9 @@ function startGame(){
   if(crossEl)crossEl.style.display='block';
   document.getElementById('timer').textContent=fmt();
   setAnx(100);
-  spawnInts.push(setInterval(spawnBug,800));
-  spawnInts.push(setInterval(spawnCard,2600));
-  spawnInts.push(setInterval(spawnBubble,1000));
+  spawnInts.push(setInterval(spawnBug,1100));
+  spawnInts.push(setInterval(spawnCard,3000));
+  spawnInts.push(setInterval(spawnBubble,1300));
   spawnBug();spawnBug();spawnCard();spawnBubble();spawnBubble();
   secondInt=setInterval(function(){
     if(!playing)return;
