@@ -2,7 +2,8 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<link rel="icon" href="data:,">
 <title>OPC 发疯广场 3D · 枪械版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -22,16 +23,16 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
 .theme-list{display:flex;flex-direction:column;gap:10px;width:min(360px,90vw)}
 .theme-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 16px;font-size:15px;color:#fff;cursor:pointer;text-align:left;transition:.15s}
 .theme-btn:active{background:rgba(255,95,158,.2);border-color:#ff5f9e;transform:scale(.98)}
-#hud{position:fixed;top:0;left:0;width:100%;padding:10px 14px;display:none;justify-content:space-between;align-items:flex-start;z-index:15;pointer-events:none}
+#hud{position:fixed;top:0;left:0;width:100%;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;display:none;justify-content:space-between;align-items:flex-start;z-index:15;pointer-events:none}
 #hud .left{background:rgba(10,5,25,.85);border:1px solid rgba(255,95,158,.3);border-radius:12px;padding:8px 12px;width:190px}
 #hud .lbl{font-size:11px;color:#ff8a80;font-weight:700;margin-bottom:3px}
 #hud .bar-bg{height:11px;background:#2a2a3a;border-radius:6px;overflow:hidden}
 #hud .bar-fill{height:100%;background:linear-gradient(90deg,#ff5252,#ff8a80);border-radius:6px;transition:width .25s;width:100%}
 #hud .right{background:rgba(10,5,25,.85);border:1px solid rgba(0,255,255,.25);border-radius:12px;padding:8px 12px;font-size:12px;text-align:right}
 #hud .right div{margin:1px 0}
-#weapon-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:none;gap:8px;z-index:16}
-#weapon-bar button{background:rgba(10,5,25,.85);border:2px solid rgba(255,255,255,.15);border-radius:12px;color:#ccc;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.5}
-#weapon-bar button span{display:block;font-size:10px;font-weight:400;color:#888}
+#weapon-bar{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:min(420px,calc(100vw - 24px));display:none;gap:8px;z-index:16}
+#weapon-bar button{flex:1 1 0;min-width:0;background:rgba(10,5,25,.85);border:2px solid rgba(255,255,255,.15);border-radius:12px;color:#ccc;padding:8px 10px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.5;white-space:nowrap}
+#weapon-bar button span{display:block;font-size:10px;font-weight:400;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #weapon-bar button.sel{border-color:#ffd75f;color:#ffd75f;box-shadow:0 0 14px rgba(255,215,95,.35)}
 #crosshair{position:fixed;left:50%;top:50%;width:34px;height:34px;transform:translate(-50%,-50%);pointer-events:none;z-index:14;display:none}
 #crosshair::before,#crosshair::after{content:'';position:absolute;background:#ffd75f;box-shadow:0 0 6px #ff6d00}
@@ -59,6 +60,19 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
 #scr-report .btns button{padding:12px 22px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none}
 #scr-report .copy{background:#ff5f9e;color:#fff}
 #scr-report .again{background:transparent;color:#ff5f9e;border:1px solid #ff5f9e}
+@media (max-width:640px){
+  .screen{padding:16px}
+  #hud{padding:calc(8px + env(safe-area-inset-top,0px)) 8px 8px}
+  #hud .left{width:clamp(145px,48vw,190px);padding:7px 9px}
+  #hud .right{max-width:45vw;padding:7px 9px;font-size:11px}
+  #weapon-bar{bottom:calc(8px + env(safe-area-inset-bottom,0px));width:calc(100vw - 16px);gap:6px}
+  #weapon-bar button{padding:8px 4px;font-size:12px}
+  #weapon-bar button span{font-size:9px}
+  #toast{max-width:calc(100vw - 24px);white-space:normal;text-align:center;font-size:14px}
+  #combo-pop{font-size:34px}
+  #phase-title .big{font-size:26px}
+  #phase-title .small{font-size:12px}
+}
 </style>
 </head>
 <body>
@@ -787,7 +801,7 @@ function startGame(){
   playing=true;ended=false;timeLeft=90;
   document.getElementById('hud').style.display='flex';
   document.getElementById('weapon-bar').style.display='flex';
-  if(!('ontouchstart' in window))crossEl.style.display='block';
+  if(crossEl)crossEl.style.display='block';
   document.getElementById('timer').textContent=fmt();
   setAnx(100);
   spawnInts.push(setInterval(spawnBug,800));
