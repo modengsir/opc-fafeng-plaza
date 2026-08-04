@@ -195,6 +195,7 @@ var THEMES={bug:'被 Bug 追着打',req:'客户又改需求',content:'内容没�
 var PLAY_Z=-8;
 var AIM_SCREEN_Y=.5;
 var AIM_X=0,AIM_Y=1-AIM_SCREEN_Y*2;
+var GUN_Z=-.72,GUN_KICK_Z=.16;
 
 /* ================= 状态 ================= */
 var R={theme:'',anxiety:100,bugs:0,badReq:0,goodSaved:0,misfire:0,bubbles:0,maxCombo:0,combo:0};
@@ -416,7 +417,7 @@ function buildGuns(){
   var keys=['smg','shotgun','sniper'];
   for(var i=0;i<keys.length;i++){
     var g=guns[keys[i]];
-    g.position.set(.42,-.38,-.9);
+    g.position.set(.42,-.38,GUN_Z);
     g.visible=false;
     camera.add(g);
   }
@@ -643,7 +644,7 @@ function animate(){
   if(g){
     var k=g.userData.kick||0;
     g.userData.kick=Math.max(0,k-dt*7);
-    g.position.set(.42,-.38+Math.sin(now*1.7)*.008,-.9+k*.22);
+    g.position.set(.42,-.38+Math.sin(now*1.7)*.008,GUN_Z+k*GUN_KICK_Z);
     g.rotation.x=k*.16;
   }
   if(firing&&weapon==='smg'&&playing)fireAtAim();
