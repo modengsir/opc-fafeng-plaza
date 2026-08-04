@@ -33,7 +33,7 @@ body{overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',sans-serif;back
 #weapon-bar button{background:rgba(10,5,25,.85);border:2px solid rgba(255,255,255,.15);border-radius:12px;color:#ccc;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.5}
 #weapon-bar button span{display:block;font-size:10px;font-weight:400;color:#888}
 #weapon-bar button.sel{border-color:#ffd75f;color:#ffd75f;box-shadow:0 0 14px rgba(255,215,95,.35)}
-#crosshair{position:fixed;inset:0;width:34px;height:34px;margin:auto;pointer-events:none;z-index:14;display:none}
+#crosshair{position:fixed;left:50%;top:56%;width:34px;height:34px;transform:translate(-50%,-50%);pointer-events:none;z-index:14;display:none}
 #crosshair::before,#crosshair::after{content:'';position:absolute;background:#ffd75f;box-shadow:0 0 6px #ff6d00}
 #crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
 #crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%)}
@@ -178,12 +178,15 @@ var REQ_GOOD=['登录页偶尔卡顿，能优化吗','希望支持导出 Excel',
 var BUBBLES=['没人买','内容没人看','竞品融资了','客户已读不回','现金流还剩 17 天','今天又没发帖','别人在晒增长','我在修登录','AI 又闯祸了','下个月房租'];
 var THEMES={bug:'被 Bug 追着打',req:'客户又改需求',content:'内容没人看',money:'现金流焦虑',ai:'AI 制造新问题'};
 
+var PLAY_Z=-8;
+var AIM_X=0,AIM_Y=-0.12;
+
 /* ================= 状态 ================= */
 var R={theme:'',anxiety:100,bugs:0,badReq:0,goodSaved:0,misfire:0,bubbles:0,maxCombo:0,combo:0};
 var playing=false,ended=false,weapon='smg',cd=0,timeLeft=90;
 var comboTimer=null,spawnInts=[],secondInt=null;
 var shake=0,firing=false;
-var lastPtr={x:0,y:0};
+var lastPtr={x:AIM_X,y:AIM_Y};
 var clock3=null;
 var bugs=[],cards=[],bubbles=[],effects=[];
 var bugHits=[],cardHits=[],bubbleHits=[];
@@ -192,11 +195,11 @@ var scene,camera,renderer,raycaster;
 
 /* 【修正】机位：拉远+压低视线，保证靶子在画面中央且准星对齐 */
 var CAM_CONF={
-  smg:{pos:[-7.5,4.5,14],look:[-7.5,1.8,-4],fov:60},
-  shotgun:{pos:[0,4.5,14],look:[0,1.8,-4],fov:58},
-  sniper:{pos:[7.5,4.5,14],look:[7.5,1.8,-4],fov:42}
+  smg:{pos:[-7.5,4.8,18],look:[-7.5,1.4,PLAY_Z],fov:64},
+  shotgun:{pos:[0,4.8,18],look:[0,1.4,PLAY_Z],fov:62},
+  sniper:{pos:[7.5,4.8,18],look:[7.5,1.4,PLAY_Z],fov:50}
 };
-var targetFov=60;
+var targetFov=CAM_CONF.smg.fov;
 var camPos,camLookT,camPosT,curLook;
 
 function M(c,e,i){
@@ -244,15 +247,15 @@ function tracer(from,to,color){
 function initThree(){
   clock3=new THREE.Clock();
   /* 【修正】初始相机位置与第一把武器对齐，避免开局黑屏 */
-  camPos=new THREE.Vector3(-7.5,4.5,14);
-  camPosT=new THREE.Vector3(-7.5,4.5,14);
-  camLookT=new THREE.Vector3(-7.5,1.8,-4);
-  curLook=new THREE.Vector3(-7.5,1.8,-4);
+  camPos=new THREE.Vector3(CAM_CONF.smg.pos[0],CAM_CONF.smg.pos[1],CAM_CONF.smg.pos[2]);
+  camPosT=camPos.clone();
+  camLookT=new THREE.Vector3(CAM_CONF.smg.look[0],CAM_CONF.smg.look[1],CAM_CONF.smg.look[2]);
+  curLook=camLookT.clone();
 
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x1a1030);
   scene.fog=new THREE.Fog(0x1a1030,34,70);
-  camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,140);
+  camera=new THREE.PerspectiveCamera(CAM_CONF.smg.fov,innerWidth/innerHeight,.1,140);
   camera.position.copy(camPos);
   camera.updateProjectionMatrix();
   scene.add(camera);
@@ -320,10 +323,10 @@ function buildZones(){
   for(var zi=0;zi<zoneData.length;zi++){
     var z=zoneData[zi];
     var pad=new THREE.Mesh(new THREE.CircleGeometry(4.6,28),new THREE.MeshBasicMaterial({color:z.color,transparent:true,opacity:.2}));
-    pad.rotation.x=-Math.PI/2;pad.position.set(z.x,.03,-2);scene.add(pad);
-    var l=new THREE.PointLight(z.color,1,15);l.position.set(z.x,4,-2);scene.add(l);
-    label3(z.label,z.x,5,-2,3.4,1.05,'#ffffff');
-    label3(z.sub,z.x,4.25,-2,2.6,.8,'#ffd75f');
+    pad.rotation.x=-Math.PI/2;pad.position.set(z.x,.03,PLAY_Z);scene.add(pad);
+    var l=new THREE.PointLight(z.color,1,15);l.position.set(z.x,4,PLAY_Z);scene.add(l);
+    label3(z.label,z.x,5,PLAY_Z,3.4,1.05,'#ffffff');
+    label3(z.sub,z.x,4.25,PLAY_Z,2.6,.8,'#ffd75f');
   }
   for(var i=0;i<6;i++){
     var b=new THREE.Mesh(new THREE.BoxGeometry(.6+Math.random()*.5,.4+Math.random()*.4,.6+Math.random()*.5),M(0x5a5a70));
@@ -338,12 +341,12 @@ function buildZones(){
     var leg=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2,6),M(0x777777));
     leg.position.set(legs[li],1,0);board.add(leg);
   }
-  board.position.set(-3.9,0,-3);board.rotation.y=Math.PI/2;scene.add(board);
-  label3('📋 白板',-3.9,3.5,-3,2.2,.7,'#a5d6a7');
+  board.position.set(-3.9,0,PLAY_Z-1);board.rotation.y=Math.PI/2;scene.add(board);
+  label3('📋 白板',-3.9,3.5,PLAY_Z-1,2.2,.7,'#a5d6a7');
   var portal=new THREE.Mesh(new THREE.TorusGeometry(1.1,.1,8,20),M(0xffa040,0xff8000));
-  portal.position.set(4.2,2.6,-3);scene.add(portal);
+  portal.position.set(4.2,2.6,PLAY_Z-1);scene.add(portal);
   var pool=new THREE.Mesh(new THREE.CircleGeometry(3.6,28),new THREE.MeshPhongMaterial({color:0x3a2a5e,emissive:0x6a4a9a,emissiveIntensity:.6}));
-  pool.rotation.x=-Math.PI/2;pool.position.set(9,.04,-2);scene.add(pool);
+  pool.rotation.x=-Math.PI/2;pool.position.set(9,.04,PLAY_Z);scene.add(pool);
 }
 
 /* ================= 枪械模型 ================= */
@@ -411,7 +414,7 @@ function spawnBug(){
   }
   var lb=new THREE.Sprite(new THREE.SpriteMaterial({map:makeText(txt,58,'#ffffff'),transparent:true,depthTest:false}));
   lb.position.y=1.55;lb.scale.set(4.2,1.31,1);g.add(lb);
-  g.position.set(-9+(Math.random()-.5)*7,-1.6,-2+(Math.random()-.5)*5);
+  g.position.set(-9+(Math.random()-.5)*7,-1.6,PLAY_Z+(Math.random()-.5)*5);
   g.userData={age:0,spin:Math.random()*2-1};
   body.userData.root=g;
   scene.add(g);bugs.push(g);bugHits.push(body);
@@ -430,7 +433,7 @@ function spawnCard(){
   g.add(frame);
   var t=new THREE.Sprite(new THREE.SpriteMaterial({map:makeText(txt,52,'#ffffff',null,'rgba(0,0,0,.9)'),transparent:true,depthTest:false}));
   t.position.z=.1;t.scale.set(3.7,1.15,1);g.add(t);
-  g.position.set(4.2,2.4+Math.random()*.9,-3);
+  g.position.set(4.2,2.3+Math.random()*.8,PLAY_Z-1);
   g.userData={good:good,speed:1+Math.random()*.4,phase:Math.random()*6};
   card.userData.root=g;
   scene.add(g);cards.push(g);cardHits.push(card);
@@ -444,7 +447,7 @@ function spawnBubble(){
   b.castShadow=true;g.add(b);
   var lb=new THREE.Sprite(new THREE.SpriteMaterial({map:makeText(txt,54,'#ffffff'),transparent:true,depthTest:false}));
   lb.scale.set(r*4.4,r*1.37,1);g.add(lb);
-  g.position.set(9+(Math.random()-.5)*6,1.2,-2+(Math.random()-.5)*5);
+  g.position.set(9+(Math.random()-.5)*6,1.2,PLAY_Z+(Math.random()-.5)*5);
   g.userData={r:r,phase:Math.random()*6};
   b.userData.root=g;
   scene.add(g);bubbles.push(g);bubbleHits.push(b);
@@ -598,7 +601,7 @@ function animate(){
     g.position.set(.42,-.38+Math.sin(now*1.7)*.008,-.9+k*.22);
     g.rotation.x=k*.16;
   }
-  if(firing&&weapon==='smg'&&playing)fire(0,0);
+  if(firing&&weapon==='smg'&&playing)fire(AIM_X,AIM_Y);
 
   var i,b,c;
   if(playing){
@@ -841,17 +844,17 @@ window.addEventListener('keydown',function(e){
   if(e.key==='1')switchWeapon('smg');
   if(e.key==='2')switchWeapon('shotgun');
   if(e.key==='3')switchWeapon('sniper');
-  if(e.key===' '){e.preventDefault();firing=true;fire(0,0);}
+  if(e.key===' '){e.preventDefault();firing=true;fire(AIM_X,AIM_Y);}
 });
 window.addEventListener('keyup',function(e){if(e.key===' ')firing=false;});
 window.addEventListener('pointerdown',function(e){
   if(!playing)return;
   if(e.target.closest&&e.target.closest('#weapon-bar'))return;
-  lastPtr.x=0;lastPtr.y=0;
-  firing=true;fire(0,0);
+  lastPtr.x=AIM_X;lastPtr.y=AIM_Y;
+  firing=true;fire(AIM_X,AIM_Y);
 });
 window.addEventListener('pointerup',function(){firing=false;});
-window.addEventListener('pointermove',function(){lastPtr.x=0;lastPtr.y=0;});
+window.addEventListener('pointermove',function(){lastPtr.x=AIM_X;lastPtr.y=AIM_Y;});
 window.addEventListener('contextmenu',function(e){e.preventDefault();});
 
 /* ================= 启动 ================= */
